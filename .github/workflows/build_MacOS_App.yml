@@ -34,5 +34,5 @@ jobs:
           brew install qt
           brew link sqlitefts5 --force
 
-      - name: SSH 连接到 Actions
-        uses: P3TERX/debugger-action@master
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
