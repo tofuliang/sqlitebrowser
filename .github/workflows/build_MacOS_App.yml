@@ -1,38 +1,88 @@
-# This is a basic workflow to help you get started with Actions
-
 name: Build Mac App
-
-# Controls when the action will run. Triggers the workflow on push or pull request
-# events but only for the master branch
 on:
   push:
     branches: [ master ]
   watch:
     types: [started]
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
   build:
-    # The type of runner that the job will run on
     runs-on:  macos-10.14
     if: github.event.repository.owner.id == github.event.sender.id
-    
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - name: 检出代码
         uses: actions/checkout@v2
         with:
          ref: 'master'
        
+      - name: PATCH代码
+        run: |
+          cat >> wechat.path <<EOF
+          diff --git a/src/sqlitedb.cpp b/src/sqlitedb.cpp
+          index 85795df1..0b83cc6f 100644
+          --- a/src/sqlitedb.cpp
+          +++ b/src/sqlitedb.cpp
+          @@ -198,11 +198,9 @@ bool DBBrowserDB::open(const QString& db, bool readOnly)
+               if(isEncrypted && cipherSettings)
+               {
+                   executeSQL("PRAGMA key = " + cipherSettings->getPassword(), false, false);
+          -        executeSQL("PRAGMA cipher_page_size = " + std::to_string(cipherSettings->getPageSize()), false, false);
+          -        executeSQL("PRAGMA kdf_iter = " + std::to_string(cipherSettings->getKdfIterations()), false, false);
+          -        executeSQL("PRAGMA cipher_hmac_algorithm = " + cipherSettings->getHmacAlgorithm(), false, false);
+          -        executeSQL("PRAGMA cipher_kdf_algorithm = " + cipherSettings->getKdfAlgorithm(), false, false);
+          -        executeSQL("PRAGMA cipher_plaintext_header_size = " + std::to_string(cipherSettings->getPlaintextHeaderSize()), false, false);
+          +        executeSQL("PRAGMA cipher_default_kdf_iter = 4000;"), false, false);
+          +        executeSQL("PRAGMA cipher_use_hmac = OFF;", false, false);
+          +        executeSQL("PRAGMA cipher_page_size = 1024;"), false, false);
+               }
+           #endif
+               delete cipherSettings;
+          @@ -513,21 +511,22 @@ bool DBBrowserDB::tryEncryptionSettings(const QString& filePath, bool* encrypted
+                           cipherSettings = nullptr;
+                           return false;
+                       }
+          -
+          +            sqlite3_exec(dbHandle, ("PRAGMA cipher_default_kdf_iter = 4000").c_str(), nullptr, nullptr, nullptr);
+                       // Set the key
+                       sqlite3_exec(dbHandle, ("PRAGMA key = " + cipherSettings->getPassword()).c_str(), nullptr, nullptr, nullptr);
+          -
+          +            sqlite3_exec(dbHandle, ("PRAGMA cipher_use_hmac = OFF").c_str(), nullptr, nullptr, nullptr);
+          +            sqlite3_exec(dbHandle, ("PRAGMA cipher_page_size = 1024").c_str(), nullptr, nullptr, nullptr);
+                       // Set the settings if they differ from the default values
+          -            if(cipherSettings->getPageSize() != enc_default_page_size)
+          -                sqlite3_exec(dbHandle, ("PRAGMA cipher_page_size = " + std::to_string(cipherSettings->getPageSize())).c_str(), nullptr, nullptr, nullptr);
+          -            if(cipherSettings->getKdfIterations() != enc_default_kdf_iter)
+          -                sqlite3_exec(dbHandle, ("PRAGMA kdf_iter = " + std::to_string(cipherSettings->getKdfIterations())).c_str(), nullptr, nullptr, nullptr);
+          -            if(cipherSettings->getHmacAlgorithm() != enc_default_hmac_algorithm)
+          -                sqlite3_exec(dbHandle, ("PRAGMA cipher_hmac_algorithm = " + cipherSettings->getHmacAlgorithm()).c_str(), nullptr, nullptr, nullptr);
+          -            if(cipherSettings->getKdfAlgorithm() != enc_default_kdf_algorithm)
+          -                sqlite3_exec(dbHandle, ("PRAGMA cipher_kdf_algorithm = " + cipherSettings->getKdfAlgorithm()).c_str(), nullptr, nullptr, nullptr);
+          -            if(cipherSettings->getPlaintextHeaderSize() != enc_default_plaintext_header_size)
+          -                sqlite3_exec(dbHandle, ("PRAGMA cipher_plaintext_header_size = " + std::to_string(cipherSettings->getPlaintextHeaderSize())).c_str(), nullptr, nullptr, nullptr);
+          +            // if(cipherSettings->getPageSize() != enc_default_page_size)
+          +            //     sqlite3_exec(dbHandle, ("PRAGMA cipher_page_size = " + std::to_string(cipherSettings->getPageSize())).c_str(), nullptr, nullptr, nullptr);
+          +            // if(cipherSettings->getKdfIterations() != enc_default_kdf_iter)
+          +            //     sqlite3_exec(dbHandle, ("PRAGMA kdf_iter = " + std::to_string(cipherSettings->getKdfIterations())).c_str(), nullptr, nullptr, nullptr);
+          +            // if(cipherSettings->getHmacAlgorithm() != enc_default_hmac_algorithm)
+          +            //     sqlite3_exec(dbHandle, ("PRAGMA cipher_hmac_algorithm = " + cipherSettings->getHmacAlgorithm()).c_str(), nullptr, nullptr, nullptr);
+          +            // if(cipherSettings->getKdfAlgorithm() != enc_default_kdf_algorithm)
+          +            //     sqlite3_exec(dbHandle, ("PRAGMA cipher_kdf_algorithm = " + cipherSettings->getKdfAlgorithm()).c_str(), nullptr, nullptr, nullptr);
+          +            // if(cipherSettings->getPlaintextHeaderSize() != enc_default_plaintext_header_size)
+          +            //     sqlite3_exec(dbHandle, ("PRAGMA cipher_plaintext_header_size = " + std::to_string(cipherSettings->getPlaintextHeaderSize())).c_str(), nullptr, nullptr, nullptr);
+           
+                       *encrypted = true;
+           #else
+          EOF
+          patch -p1 < wechat.patch
+       
       - name: 安装编译环境
         run: |
-          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
           brew tap sqlitebrowser/sqlite3
           brew install sqlitefts5
           brew install qt
           brew link sqlitefts5 --force
+          brew link qt --force
+          export PATH="/usr/local/opt/qt/bin:$PATH"
 
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
