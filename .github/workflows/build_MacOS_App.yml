@@ -1,0 +1,38 @@
+# This is a basic workflow to help you get started with Actions
+
+name: Build Mac App
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on:
+  push:
+    branches: [ master ]
+  watch:
+    types: [started]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on:  macos-10.14
+    if: github.event.repository.owner.id == github.event.sender.id
+    
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: 检出代码
+        uses: actions/checkout@v2
+        with:
+         ref: 'master'
+       
+      - name: 安装编译环境
+        run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+          brew tap sqlitebrowser/sqlite3
+          brew install sqlitefts5
+          brew install qt
+          brew link sqlitefts5 --force
+
+      - name: SSH 连接到 Actions
+        uses: P3TERX/debugger-action@master
